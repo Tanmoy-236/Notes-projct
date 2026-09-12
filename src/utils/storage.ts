@@ -7,18 +7,15 @@ const STORAGE_KEYS = {
   CHAT_MESSAGES: '@lifeflow_chat',
   NOTIFICATIONS: '@lifeflow_notifications',
   SEARCH_HISTORY: '@lifeflow_search_history',
-};
+} as const;
 
 export const StorageService = {
   async getItem<T>(key: string, defaultValue: T): Promise<T> {
     try {
       const value = await AsyncStorage.getItem(key);
-      if (value !== null) {
-        return JSON.parse(value) as T;
-      }
-      return defaultValue;
-    } catch (e) {
-      console.warn(`Error reading AsyncStorage key: ${key}`, e);
+      return value === null ? defaultValue : (JSON.parse(value) as T);
+    } catch (error) {
+      console.warn(`Error reading AsyncStorage key: ${key}`, error);
       return defaultValue;
     }
   },
@@ -27,8 +24,8 @@ export const StorageService = {
     try {
       await AsyncStorage.setItem(key, JSON.stringify(value));
       return true;
-    } catch (e) {
-      console.warn(`Error writing AsyncStorage key: ${key}`, e);
+    } catch (error) {
+      console.warn(`Error writing AsyncStorage key: ${key}`, error);
       return false;
     }
   },
@@ -37,18 +34,18 @@ export const StorageService = {
     try {
       await AsyncStorage.removeItem(key);
       return true;
-    } catch (e) {
-      console.warn(`Error removing AsyncStorage key: ${key}`, e);
+    } catch (error) {
+      console.warn(`Error removing AsyncStorage key: ${key}`, error);
       return false;
     }
   },
 
   async clearAll(): Promise<boolean> {
     try {
-      await AsyncStorage.clear();
+      await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
       return true;
-    } catch (e) {
-      console.warn('Error clearing AsyncStorage', e);
+    } catch (error) {
+      console.warn('Error clearing LifeFlow storage.', error);
       return false;
     }
   },
