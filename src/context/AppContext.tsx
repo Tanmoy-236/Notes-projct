@@ -27,24 +27,18 @@ interface AppContextType {
   isDarkMode: boolean;
   theme: typeof COLORS.light;
   isAiLoading: boolean;
-
-  // Task actions
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => Task;
   updateTask: (id: string, updates: Partial<Task>) => void;
   toggleTaskComplete: (id: string) => void;
   deleteTask: (id: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   addSubtask: (taskId: string, title: string) => void;
-
-  // Note actions
   addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => Note;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   togglePinNote: (id: string) => void;
   toggleFavoriteNote: (id: string) => void;
   createTasksFromNoteAI: (noteId: string) => Promise<number>;
-
-  // AI actions
   sendChatMessage: (text: string) => Promise<void>;
   clearChat: () => void;
   optimizeDailySchedule: () => Promise<{
@@ -53,13 +47,9 @@ interface AppContextType {
     evening: Task[];
     aiInsight: string;
   }>;
-
-  // Profile and theme actions
   updateUserProfile: (updates: Partial<UserProfile>) => void;
   toggleTheme: () => void;
   completeOnboarding: () => void;
-
-  // Notification actions
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
   addNotification: (
@@ -67,7 +57,6 @@ interface AppContextType {
     message: string,
     type?: NotificationItem['type']
   ) => void;
-
   resetToSampleData: () => Promise<void>;
 }
 
@@ -75,7 +64,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
-
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES);
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
@@ -112,28 +100,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    void StorageService.setItem(StorageService.KEYS.TASKS, tasks);
+    if (isLoaded) void StorageService.setItem(StorageService.KEYS.TASKS, tasks);
   }, [tasks, isLoaded]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    void StorageService.setItem(StorageService.KEYS.NOTES, notes);
+    if (isLoaded) void StorageService.setItem(StorageService.KEYS.NOTES, notes);
   }, [notes, isLoaded]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    void StorageService.setItem(StorageService.KEYS.USER_PROFILE, userProfile);
+    if (isLoaded) void StorageService.setItem(StorageService.KEYS.USER_PROFILE, userProfile);
   }, [userProfile, isLoaded]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    void StorageService.setItem(StorageService.KEYS.CHAT_MESSAGES, chatMessages);
+    if (isLoaded) void StorageService.setItem(StorageService.KEYS.CHAT_MESSAGES, chatMessages);
   }, [chatMessages, isLoaded]);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    void StorageService.setItem(StorageService.KEYS.NOTIFICATIONS, notifications);
+    if (isLoaded) void StorageService.setItem(StorageService.KEYS.NOTIFICATIONS, notifications);
   }, [notifications, isLoaded]);
 
   const isDarkMode =
@@ -158,26 +141,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleTaskComplete = (id: string) => {
+    const task = tasks.find((item) => item.id === id);
+    if (!task) return;
+
+    const completed = !task.completed;
     setTasks((previous) =>
-      previous.map((task) => {
-        if (task.id !== id) return task;
-
-        const completed = !task.completed;
-        setUserProfile((profile) => ({
-          ...profile,
-          totalCompletedTasks: Math.max(
-            0,
-            profile.totalCompletedTasks + (completed ? 1 : -1)
-          ),
-        }));
-
-        return {
-          ...task,
-          completed,
-          completedAt: completed ? new Date().toISOString() : undefined,
-        };
-      })
+      previous.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              completed,
+              completedAt: completed ? new Date().toISOString() : undefined,
+            }
+          : item
+      )
     );
+    setUserProfile((profile) => ({
+      ...profile,
+      totalCompletedTasks: Math.max(
+        0,
+        profile.totalCompletedTasks + (completed ? 1 : -1)
+      ),
+    }));
   };
 
   const deleteTask = (id: string) => {
@@ -287,16 +272,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       });
 
-      setUserProfile((profile) => ({
-        ...profile,
-        aiRequestsUsed: profile.aiRequestsUsed + 1,
-      }));
+      setUserProfile((profile) => ({ ...profile, aiRequestsUsed: profile.aiRequestsUsed + 1 }));
       addNotification(
         '✨ Tasks Extracted from Note',
         `LifeFlow AI extracted ${extracted.length} tasks from "${targetNote.title}".`,
         'ai'
       );
-
       return extracted.length;
     } finally {
       setIsAiLoading(false);
@@ -312,12 +293,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setChatMessages((previous) => [
       ...previous,
-      {
-        id: `c-u-${Date.now()}`,
-        sender: 'user',
-        text: trimmedText,
-        timestamp: timestamp(),
-      },
+      { id: `c-u-${Date.now()}`, sender: 'user', text: trimmedText, timestamp: timestamp() },
     ]);
     setIsAiLoading(true);
 
@@ -327,13 +303,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notes,
         userName: userProfile.name,
       });
-
       const payload = response.actionPayload;
-      if (
-        response.actionType === 'task_created' &&
-        payload?.title &&
-        payload.dueDate
-      ) {
+
+      if (response.actionType === 'task_created' && payload?.title && payload.dueDate) {
         addTask({
           title: payload.title,
           dueDate: payload.dueDate,
@@ -356,10 +328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           actionPayload: response.actionPayload,
         },
       ]);
-      setUserProfile((profile) => ({
-        ...profile,
-        aiRequestsUsed: profile.aiRequestsUsed + 1,
-      }));
+      setUserProfile((profile) => ({ ...profile, aiRequestsUsed: profile.aiRequestsUsed + 1 }));
     } catch (error) {
       console.warn('AI chat request failed.', error);
       setChatMessages((previous) => [
@@ -398,21 +367,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       result.evening.forEach((task) => scheduleById.set(task.id, 'evening'));
 
       setTasks((previous) =>
-        previous.map((task) => ({
-          ...task,
-          scheduledTimeBlock: scheduleById.get(task.id),
-        }))
+        previous.map((task) => ({ ...task, scheduledTimeBlock: scheduleById.get(task.id) }))
       );
-      setUserProfile((profile) => ({
-        ...profile,
-        aiRequestsUsed: profile.aiRequestsUsed + 1,
-      }));
+      setUserProfile((profile) => ({ ...profile, aiRequestsUsed: profile.aiRequestsUsed + 1 }));
       addNotification(
         '✨ Daily Schedule Optimized',
         'Tasks arranged by peak focus and energy slots.',
         'ai'
       );
-
       return result;
     } finally {
       setIsAiLoading(false);
