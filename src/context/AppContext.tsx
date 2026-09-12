@@ -1,10 +1,22 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
-import { Task, Note, UserProfile, ChatMessage, NotificationItem, Priority, TaskCategory, NoteCategory } from '../types';
-import { INITIAL_TASKS, INITIAL_NOTES, INITIAL_CHAT_MESSAGES, INITIAL_USER_PROFILE, INITIAL_NOTIFICATIONS } from '../constants/sampleData';
+import {
+  ChatMessage,
+  Note,
+  NotificationItem,
+  Task,
+  UserProfile,
+} from '../types';
+import {
+  INITIAL_CHAT_MESSAGES,
+  INITIAL_NOTIFICATIONS,
+  INITIAL_NOTES,
+  INITIAL_TASKS,
+  INITIAL_USER_PROFILE,
+} from '../constants/sampleData';
 import { COLORS } from '../constants/theme';
-import { StorageService } from '../utils/storage';
 import { AIEngine } from '../utils/aiEngine';
+import { StorageService } from '../utils/storage';
 
 interface AppContextType {
   tasks: Task[];
@@ -15,39 +27,47 @@ interface AppContextType {
   isDarkMode: boolean;
   theme: typeof COLORS.light;
   isAiLoading: boolean;
-  
-  // Task Actions
+
+  // Task actions
   addTask: (task: Omit<Task, 'id' | 'createdAt'>) => Task;
   updateTask: (id: string, updates: Partial<Task>) => void;
   toggleTaskComplete: (id: string) => void;
   deleteTask: (id: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   addSubtask: (taskId: string, title: string) => void;
-  
-  // Note Actions
+
+  // Note actions
   addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => Note;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   togglePinNote: (id: string) => void;
   toggleFavoriteNote: (id: string) => void;
   createTasksFromNoteAI: (noteId: string) => Promise<number>;
-  
-  // AI Chat Actions
+
+  // AI actions
   sendChatMessage: (text: string) => Promise<void>;
   clearChat: () => void;
-  optimizeDailySchedule: () => Promise<{ morning: Task[]; afternoon: Task[]; evening: Task[]; aiInsight: string }>;
-  
-  // Profile & Theme Actions
+  optimizeDailySchedule: () => Promise<{
+    morning: Task[];
+    afternoon: Task[];
+    evening: Task[];
+    aiInsight: string;
+  }>;
+
+  // Profile and theme actions
   updateUserProfile: (updates: Partial<UserProfile>) => void;
   toggleTheme: () => void;
   completeOnboarding: () => void;
-  
-  // Notifications
+
+  // Notification actions
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
-  addNotification: (title: string, message: string, type?: NotificationItem['type']) => void;
-  
-  // Reset
+  addNotification: (
+    title: string,
+    message: string,
+    type?: NotificationItem['type']
+  ) => void;
+
   resetToSampleData: () => Promise<void>;
 }
 
@@ -55,200 +75,208 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
-  
+
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
   const [notes, setNotes] = useState<Note[]>(INITIAL_NOTES);
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from local storage on startup
   useEffect(() => {
     const loadState = async () => {
       try {
-        const storedTasks = await StorageService.getItem<Task[]>(StorageService.KEYS.TASKS, INITIAL_TASKS);
-        const storedNotes = await StorageService.getItem<Note[]>(StorageService.KEYS.NOTES, INITIAL_NOTES);
-        const storedProfile = await StorageService.getItem<UserProfile>(StorageService.KEYS.USER_PROFILE, INITIAL_USER_PROFILE);
-        const storedChat = await StorageService.getItem<ChatMessage[]>(StorageService.KEYS.CHAT_MESSAGES, INITIAL_CHAT_MESSAGES);
-        const storedNotifs = await StorageService.getItem<NotificationItem[]>(StorageService.KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
+        const [storedTasks, storedNotes, storedProfile, storedChat, storedNotifications] =
+          await Promise.all([
+            StorageService.getItem(StorageService.KEYS.TASKS, INITIAL_TASKS),
+            StorageService.getItem(StorageService.KEYS.NOTES, INITIAL_NOTES),
+            StorageService.getItem(StorageService.KEYS.USER_PROFILE, INITIAL_USER_PROFILE),
+            StorageService.getItem(StorageService.KEYS.CHAT_MESSAGES, INITIAL_CHAT_MESSAGES),
+            StorageService.getItem(StorageService.KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS),
+          ]);
 
         setTasks(storedTasks);
         setNotes(storedNotes);
         setUserProfile(storedProfile);
         setChatMessages(storedChat);
-        setNotifications(storedNotifs);
-      } catch (err) {
-        console.warn('Failed to load storage state', err);
+        setNotifications(storedNotifications);
+      } catch (error) {
+        console.warn('Failed to load persisted app state.', error);
       } finally {
         setIsLoaded(true);
       }
     };
+
     loadState();
   }, []);
 
-  // Save to storage when state changes (after initial load)
   useEffect(() => {
     if (!isLoaded) return;
-    StorageService.setItem(StorageService.KEYS.TASKS, tasks);
+    void StorageService.setItem(StorageService.KEYS.TASKS, tasks);
   }, [tasks, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
-    StorageService.setItem(StorageService.KEYS.NOTES, notes);
+    void StorageService.setItem(StorageService.KEYS.NOTES, notes);
   }, [notes, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
-    StorageService.setItem(StorageService.KEYS.USER_PROFILE, userProfile);
+    void StorageService.setItem(StorageService.KEYS.USER_PROFILE, userProfile);
   }, [userProfile, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
-    StorageService.setItem(StorageService.KEYS.CHAT_MESSAGES, chatMessages);
+    void StorageService.setItem(StorageService.KEYS.CHAT_MESSAGES, chatMessages);
   }, [chatMessages, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
-    StorageService.setItem(StorageService.KEYS.NOTIFICATIONS, notifications);
+    void StorageService.setItem(StorageService.KEYS.NOTIFICATIONS, notifications);
   }, [notifications, isLoaded]);
 
-  // Derived Theme
   const isDarkMode =
     userProfile.themeMode === 'dark' ||
     (userProfile.themeMode === 'system' && systemColorScheme === 'dark');
-
   const theme = isDarkMode ? COLORS.dark : COLORS.light;
 
-  // Task Actions
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>): Task => {
     const newTask: Task = {
       ...taskData,
-      id: `t-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       createdAt: new Date().toISOString(),
     };
-    setTasks((prev) => [newTask, ...prev]);
+    setTasks((previous) => [newTask, ...previous]);
     return newTask;
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === id) {
-          return { ...t, ...updates };
-        }
-        return t;
-      })
+    setTasks((previous) =>
+      previous.map((task) => (task.id === id ? { ...task, ...updates } : task))
     );
   };
 
   const toggleTaskComplete = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === id) {
-          const nextCompleted = !t.completed;
-          if (nextCompleted) {
-            setUserProfile((p) => ({ ...p, totalCompletedTasks: p.totalCompletedTasks + 1 }));
-          }
-          return {
-            ...t,
-            completed: nextCompleted,
-            completedAt: nextCompleted ? new Date().toISOString() : undefined,
-          };
-        }
-        return t;
+    setTasks((previous) =>
+      previous.map((task) => {
+        if (task.id !== id) return task;
+
+        const completed = !task.completed;
+        setUserProfile((profile) => ({
+          ...profile,
+          totalCompletedTasks: Math.max(
+            0,
+            profile.totalCompletedTasks + (completed ? 1 : -1)
+          ),
+        }));
+
+        return {
+          ...task,
+          completed,
+          completedAt: completed ? new Date().toISOString() : undefined,
+        };
       })
     );
   };
 
   const deleteTask = (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setTasks((previous) => previous.filter((task) => task.id !== id));
   };
 
   const toggleSubtask = (taskId: string, subtaskId: string) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const updatedSubtasks = t.subtasks.map((st) =>
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-          );
-          return { ...t, subtasks: updatedSubtasks };
-        }
-        return t;
-      })
+    setTasks((previous) =>
+      previous.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              subtasks: task.subtasks.map((subtask) =>
+                subtask.id === subtaskId
+                  ? { ...subtask, completed: !subtask.completed }
+                  : subtask
+              ),
+            }
+          : task
+      )
     );
   };
 
   const addSubtask = (taskId: string, title: string) => {
-    if (!title.trim()) return;
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const newSub: Task['subtasks'][0] = {
-            id: `st-${Date.now()}`,
-            title: title.trim(),
-            completed: false,
-          };
-          return { ...t, subtasks: [...t.subtasks, newSub] };
-        }
-        return t;
-      })
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    setTasks((previous) =>
+      previous.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              subtasks: [
+                ...task.subtasks,
+                {
+                  id: `st-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                  title: trimmedTitle,
+                  completed: false,
+                },
+              ],
+            }
+          : task
+      )
     );
   };
 
-  // Note Actions
   const addNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Note => {
+    const timestamp = new Date().toISOString();
     const newNote: Note = {
       ...noteData,
-      id: `n-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     };
-    setNotes((prev) => [newNote, ...prev]);
+    setNotes((previous) => [newNote, ...previous]);
     return newNote;
   };
 
   const updateNote = (id: string, updates: Partial<Note>) => {
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id === id) {
-          return { ...n, ...updates, updatedAt: new Date().toISOString() };
-        }
-        return n;
-      })
+    setNotes((previous) =>
+      previous.map((note) =>
+        note.id === id
+          ? { ...note, ...updates, updatedAt: new Date().toISOString() }
+          : note
+      )
     );
   };
 
   const deleteNote = (id: string) => {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+    setNotes((previous) => previous.filter((note) => note.id !== id));
   };
 
   const togglePinNote = (id: string) => {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n))
+    setNotes((previous) =>
+      previous.map((note) => (note.id === id ? { ...note, pinned: !note.pinned } : note))
     );
   };
 
   const toggleFavoriteNote = (id: string) => {
-    setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, favorite: !n.favorite } : n))
+    setNotes((previous) =>
+      previous.map((note) =>
+        note.id === id ? { ...note, favorite: !note.favorite } : note
+      )
     );
   };
 
   const createTasksFromNoteAI = async (noteId: string): Promise<number> => {
-    const targetNote = notes.find((n) => n.id === noteId);
+    const targetNote = notes.find((note) => note.id === noteId);
     if (!targetNote) return 0;
 
     setIsAiLoading(true);
     try {
       const extracted = await AIEngine.extractTasksFromNote(targetNote.title, targetNote.content);
-      const todayStr = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
 
       extracted.forEach((item) => {
         addTask({
           title: item.title,
-          dueDate: todayStr,
+          dueDate: today,
           dueTime: '04:00 PM',
           priority: item.priority,
           category: item.category,
@@ -259,64 +287,90 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       });
 
-      setUserProfile((p) => ({ ...p, aiRequestsUsed: p.aiRequestsUsed + 1 }));
+      setUserProfile((profile) => ({
+        ...profile,
+        aiRequestsUsed: profile.aiRequestsUsed + 1,
+      }));
       addNotification(
         '✨ Tasks Extracted from Note',
         `LifeFlow AI extracted ${extracted.length} tasks from "${targetNote.title}".`,
         'ai'
       );
+
       return extracted.length;
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // AI Chat Actions
   const sendChatMessage = async (text: string) => {
-    if (!text.trim()) return;
+    const trimmedText = text.trim();
+    if (!trimmedText) return;
 
-    const userMsg: ChatMessage = {
-      id: `c-u-${Date.now()}`,
-      sender: 'user',
-      text: text.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+    const timestamp = () =>
+      new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    setChatMessages((prev) => [...prev, userMsg]);
+    setChatMessages((previous) => [
+      ...previous,
+      {
+        id: `c-u-${Date.now()}`,
+        sender: 'user',
+        text: trimmedText,
+        timestamp: timestamp(),
+      },
+    ]);
     setIsAiLoading(true);
 
     try {
-      const response = await AIEngine.generateChatResponse(text, {
+      const response = await AIEngine.generateChatResponse(trimmedText, {
         tasks,
         notes,
         userName: userProfile.name,
       });
 
-      if (response.actionType === 'task_created' && response.actionPayload) {
+      const payload = response.actionPayload;
+      if (
+        response.actionType === 'task_created' &&
+        payload?.title &&
+        payload.dueDate
+      ) {
         addTask({
-          title: response.actionPayload.title,
-          dueDate: response.actionPayload.dueDate,
-          dueTime: response.actionPayload.dueTime || '04:00 PM',
-          priority: response.actionPayload.priority || 'high',
-          category: response.actionPayload.category || 'Work',
+          title: payload.title,
+          dueDate: payload.dueDate,
+          dueTime: payload.dueTime || '04:00 PM',
+          priority: payload.priority || 'high',
+          category: payload.category || 'Work',
           completed: false,
           subtasks: [],
         });
       }
 
-      const aiMsg: ChatMessage = {
-        id: `c-a-${Date.now()}`,
-        sender: 'ai',
-        text: response.text,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        actionType: response.actionType,
-        actionPayload: response.actionPayload,
-      };
-
-      setChatMessages((prev) => [...prev, aiMsg]);
-      setUserProfile((p) => ({ ...p, aiRequestsUsed: p.aiRequestsUsed + 1 }));
-    } catch (e) {
-      console.warn('AI Chat error', e);
+      setChatMessages((previous) => [
+        ...previous,
+        {
+          id: `c-a-${Date.now()}`,
+          sender: 'ai',
+          text: response.text,
+          timestamp: timestamp(),
+          actionType: response.actionType,
+          actionPayload: response.actionPayload,
+        },
+      ]);
+      setUserProfile((profile) => ({
+        ...profile,
+        aiRequestsUsed: profile.aiRequestsUsed + 1,
+      }));
+    } catch (error) {
+      console.warn('AI chat request failed.', error);
+      setChatMessages((previous) => [
+        ...previous,
+        {
+          id: `c-error-${Date.now()}`,
+          sender: 'ai',
+          text: 'Sorry, I could not process that request. Please try again.',
+          timestamp: timestamp(),
+        },
+      ]);
     } finally {
       setIsAiLoading(false);
     }
@@ -327,7 +381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: `c-init-${Date.now()}`,
         sender: 'ai',
-        text: `👋 Chat reset! I'm **LifeFlow AI**. How can I help you organize your tasks or summarize your notes today?`,
+        text: "👋 Chat reset! I'm **LifeFlow AI**. How can I help you organize your tasks or summarize your notes today?",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -337,64 +391,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsAiLoading(true);
     try {
       const result = await AIEngine.optimizeSchedule(tasks);
-      
-      // Update tasks with their new schedule blocks
-      const updatedTasks = tasks.map((t) => {
-        const inMorning = result.morning.find((m) => m.id === t.id);
-        if (inMorning) return { ...t, scheduledTimeBlock: 'morning' as const };
-        const inAfternoon = result.afternoon.find((a) => a.id === t.id);
-        if (inAfternoon) return { ...t, scheduledTimeBlock: 'afternoon' as const };
-        const inEvening = result.evening.find((e) => e.id === t.id);
-        if (inEvening) return { ...t, scheduledTimeBlock: 'evening' as const };
-        return t;
-      });
+      const scheduleById = new Map<string, Task['scheduledTimeBlock']>();
 
-      setTasks(updatedTasks);
-      setUserProfile((p) => ({ ...p, aiRequestsUsed: p.aiRequestsUsed + 1 }));
-      addNotification('✨ Daily Schedule Optimized', 'Tasks arranged by peak focus & energy slots.', 'ai');
+      result.morning.forEach((task) => scheduleById.set(task.id, 'morning'));
+      result.afternoon.forEach((task) => scheduleById.set(task.id, 'afternoon'));
+      result.evening.forEach((task) => scheduleById.set(task.id, 'evening'));
+
+      setTasks((previous) =>
+        previous.map((task) => ({
+          ...task,
+          scheduledTimeBlock: scheduleById.get(task.id),
+        }))
+      );
+      setUserProfile((profile) => ({
+        ...profile,
+        aiRequestsUsed: profile.aiRequestsUsed + 1,
+      }));
+      addNotification(
+        '✨ Daily Schedule Optimized',
+        'Tasks arranged by peak focus and energy slots.',
+        'ai'
+      );
+
       return result;
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // User & Theme Actions
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfile((prev) => ({ ...prev, ...updates }));
+    setUserProfile((previous) => ({ ...previous, ...updates }));
   };
 
   const toggleTheme = () => {
-    setUserProfile((prev) => ({
-      ...prev,
-      themeMode: prev.themeMode === 'dark' ? 'light' : 'dark',
+    setUserProfile((previous) => ({
+      ...previous,
+      themeMode: previous.themeMode === 'dark' ? 'light' : 'dark',
     }));
   };
 
   const completeOnboarding = () => {
-    setUserProfile((prev) => ({ ...prev, hasOnboarded: true }));
+    setUserProfile((previous) => ({ ...previous, hasOnboarded: true }));
   };
 
-  // Notifications
   const markNotificationRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    setNotifications((previous) =>
+      previous.map((notification) =>
+        notification.id === id ? { ...notification, read: true } : notification
+      )
     );
   };
 
-  const clearNotifications = () => {
-    setNotifications([]);
-  };
+  const clearNotifications = () => setNotifications([]);
 
-  const addNotification = (title: string, message: string, type: NotificationItem['type'] = 'task') => {
-    const newNotif: NotificationItem = {
-      id: `notif-${Date.now()}`,
-      title,
-      message,
-      time: 'Just now',
-      read: false,
-      type,
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
+  const addNotification = (
+    title: string,
+    message: string,
+    type: NotificationItem['type'] = 'task'
+  ) => {
+    setNotifications((previous) => [
+      {
+        id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        title,
+        message,
+        time: 'Just now',
+        read: false,
+        type,
+      },
+      ...previous,
+    ]);
   };
 
   const resetToSampleData = async () => {
@@ -446,10 +511,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 };
 
-export const useApp = () => {
+export const useApp = (): AppContextType => {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
+    throw new Error('useApp must be used inside an AppProvider.');
   }
   return context;
 };
