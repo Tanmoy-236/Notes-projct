@@ -1,8 +1,21 @@
 export type Priority = 'high' | 'medium' | 'low';
 
-export type TaskCategory = 'Work' | 'Personal' | 'Study' | 'Ideas' | 'Health' | 'Finance' | 'Important';
+export type TaskCategory =
+  | 'Work'
+  | 'Personal'
+  | 'Study'
+  | 'Ideas'
+  | 'Health'
+  | 'Finance'
+  | 'Important';
 
-export type NoteCategory = 'All' | 'Personal' | 'Study' | 'Work' | 'Ideas' | 'Important';
+export type NoteCategory =
+  | 'All'
+  | 'Personal'
+  | 'Study'
+  | 'Work'
+  | 'Ideas'
+  | 'Important';
 
 export interface SubTask {
   id: string;
@@ -14,12 +27,12 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
-  dueDate: string; // YYYY-MM-DD
-  dueTime?: string; // HH:mm or '10:00 AM'
+  dueDate: string;
+  dueTime?: string;
   priority: Priority;
   category: TaskCategory;
   completed: boolean;
-  reminder?: string; // 'At time' | '15m before' | '1 hour before' | '1 day before' | 'none'
+  reminder?: string;
   repeat?: 'none' | 'daily' | 'weekly' | 'monthly';
   subtasks: SubTask[];
   notes?: string;
@@ -44,13 +57,27 @@ export interface Note {
   summary?: string;
 }
 
+export type ChatActionType =
+  | 'task_created'
+  | 'note_created'
+  | 'schedule_optimized'
+  | 'summary_generated';
+
+export interface ChatActionPayload {
+  title?: string;
+  dueDate?: string;
+  dueTime?: string;
+  priority?: Priority;
+  category?: TaskCategory;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'ai';
   text: string;
   timestamp: string;
-  actionType?: 'task_created' | 'note_created' | 'schedule_optimized' | 'summary_generated';
-  actionPayload?: any;
+  actionType?: ChatActionType;
+  actionPayload?: ChatActionPayload;
 }
 
 export interface PlannerTimeBlock {
